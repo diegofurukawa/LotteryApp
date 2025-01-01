@@ -75,27 +75,35 @@ class UIManager:
         return buttons
     
     def create_control_panel(self, parent: ctk.CTkFrame, buttons_config: list) -> Dict:
-        """Cria o painel de controle com entrada de quantidade e botões"""
-        frame = ctk.CTkFrame(parent)
-        frame.pack(pady=10, fill="x")
+        """Criar o painel de controle com entrada de quantidade e botões"""
+        main_frame = ctk.CTkFrame(parent)
+        main_frame.pack(pady=10, fill="x")
         
-        # Quantidade de jogos
-        num_games_label = ctk.CTkLabel(frame, text="Quantidade de Jogos:")
+        # Frame superior para quantidade de jogos
+        quantity_frame = ctk.CTkFrame(main_frame)
+        quantity_frame.pack(pady=5, fill="x")
+        
+        # Label e entrada para quantidade
+        num_games_label = ctk.CTkLabel(quantity_frame, text="Quantidade de Jogos:")
         num_games_label.pack(side="left", padx=5)
         
         num_games_var = ctk.StringVar(value="1")
         num_games_entry = ctk.CTkEntry(
-            frame,
+            quantity_frame,
             textvariable=num_games_var,
             width=60
         )
         num_games_entry.pack(side="left", padx=5)
         
-        # Botões
+        # Frame inferior para botões
+        buttons_frame = ctk.CTkFrame(main_frame)
+        buttons_frame.pack(pady=5, fill="x")
+        
+        # Criar botões com configuração fornecida
         buttons = {}
         for text, command in buttons_config:
             btn = ctk.CTkButton(
-                frame,
+                buttons_frame,
                 text=text,
                 command=command,
                 font=ctk.CTkFont(size=16),
@@ -103,6 +111,19 @@ class UIManager:
             )
             btn.pack(side="left", padx=5)
             buttons[text] = btn
+        
+        # Adicionar botão Limpar à direita
+        clear_btn = ctk.CTkButton(
+            buttons_frame,
+            text="Limpar Histórico",
+            command=buttons_config[-1][1] if len(buttons_config) > 0 else None,
+            font=ctk.CTkFont(size=16),
+            width=150,
+            fg_color="red",
+            hover_color="#b30000"  # Vermelho mais escuro para hover
+        )
+        clear_btn.pack(side="right", padx=5)
+        buttons['Limpar Histórico'] = clear_btn
         
         return {
             'num_games_var': num_games_var,
@@ -182,4 +203,72 @@ class UIManager:
         return {
             'search_var': search_var,
             'search_type': search_type
+        }
+    
+    # In manager_ui.py, add the following method to the UIManager class
+
+    def create_favorites_panel(self, parent: ctk.CTkFrame, favorite_numbers_var: ctk.StringVar) -> ctk.CTkFrame:
+        """Creates a panel for managing favorite numbers"""
+        frame = ctk.CTkFrame(parent)
+        frame.pack(pady=5, fill="x")
+        
+        # Label
+        favorites_label = ctk.CTkLabel(
+            frame,
+            text="Números Favoritos:",
+            font=ctk.CTkFont(size=14)
+        )
+        favorites_label.pack(side="left", padx=5)
+        
+        # Entry for favorite numbers
+        favorites_entry = ctk.CTkEntry(
+            frame,
+            textvariable=favorite_numbers_var,
+            width=200,
+            placeholder_text="Ex: 1, 2, 3, 4, 5, 6"
+        )
+        favorites_entry.pack(side="left", padx=5, fill="x", expand=True)
+        
+        return frame
+
+    # Modify the create_control_panel method to include the favorites panel
+    def create_control_panel(self, parent: ctk.CTkFrame, buttons_config: list) -> Dict:
+        """Creates the control panel with game quantity input and buttons"""
+        main_frame = ctk.CTkFrame(parent)
+        main_frame.pack(pady=10, fill="x")
+        
+        # Quantity controls frame
+        quantity_frame = ctk.CTkFrame(main_frame)
+        quantity_frame.pack(pady=5, fill="x")
+        
+        num_games_label = ctk.CTkLabel(quantity_frame, text="Quantidade de Jogos:")
+        num_games_label.pack(side="left", padx=5)
+        
+        num_games_var = ctk.StringVar(value="1")
+        num_games_entry = ctk.CTkEntry(
+            quantity_frame,
+            textvariable=num_games_var,
+            width=60
+        )
+        num_games_entry.pack(side="left", padx=5)
+        
+        # Buttons frame
+        buttons_frame = ctk.CTkFrame(main_frame)
+        buttons_frame.pack(pady=5, fill="x")
+        
+        buttons = {}
+        for text, command in buttons_config:
+            btn = ctk.CTkButton(
+                buttons_frame,
+                text=text,
+                command=command,
+                font=ctk.CTkFont(size=16),
+                width=150
+            )
+            btn.pack(side="left", padx=5)
+            buttons[text] = btn
+        
+        return {
+            'num_games_var': num_games_var,
+            'buttons': buttons
         }

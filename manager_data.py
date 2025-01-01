@@ -63,4 +63,4 @@ class DataManager:
         Formats a list of numbers into a display string
         Returns: Formatted string of numbers
         """
-        return ' - '.join(f"{num:02d}" for num in sorted(numeros))
+        return ', '.join(f"{num:02d}" for num in sorted(numeros))
