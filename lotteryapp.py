@@ -248,10 +248,10 @@ class LotteryApp:
         current_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         
         # Formatar números
-        numbers_str = " - ".join(f"{num:02d}" for num in sorted(numbers))
+        numbers_str = ", ".join(f"{num:02d}" for num in sorted(numbers))
         
         # Texto base do histórico
-        history_text = f"[{current_time}] {numbers_str}"
+        history_text = f"[{current_time}]    -    {numbers_str}"
         
         # Se temos dados de sorteios, adicionar análises
         if self.stats_manager:
@@ -264,16 +264,24 @@ class LotteryApp:
             # Adicionar números que aparecem nos sorteios recentes
             if analysis['matches_recent']:
                 recent_nums = ", ".join(f"{n:02d}" for n in analysis['matches_recent'])
-                history_text += f"\n    ⚠️ Números recentes: {recent_nums}"
-            
+                # history_text += f"\n    ⚠️ Números recentes: {recent_nums}"
+                history_text += f"    -    ⚠️ Números recentes: {recent_nums}"
+
             # Adicionar ocorrências em outros sorteios
             for concurso, data in analysis['matching_numbers'].items():
                 matches = ", ".join(f"{n:02d}" for n in data['numbers'])
                 if len(data['numbers']) >= 4:  # Se tem 4 ou mais números coincidentes
-                    history_text += f"\n    🔍 Concurso {concurso} ({data['date']}): {matches}"
+                    history_text += f"    🔍 Concurso(s) -  {concurso}"
+                        
+            # # Adicionar ocorrências em outros sorteios
+            # for concurso, data in analysis['matching_numbers'].items():
+            #     matches = ", ".join(f"{n:02d}" for n in data['numbers'])
+            #     if len(data['numbers']) >= 4:  # Se tem 4 ou mais números coincidentes
+            #         history_text += f"\n    🔍 Concurso {concurso} ({data['date']}): {matches}"
         
         # Adicionar ao histórico com uma linha em branco para separação
-        self.ui_components['text_areas']['histórico'].insert("0.0", history_text + "\n\n")
+        # self.ui_components['text_areas']['histórico'].insert("0.0", history_text + "\n\n")
+        self.ui_components['text_areas']['histórico'].insert("0.0", history_text + "\n")
     
     def display_game(self, numbers):
         """Mostrar jogo no display de números"""
