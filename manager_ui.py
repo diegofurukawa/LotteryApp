@@ -1,5 +1,7 @@
+import random
 import customtkinter as ctk
-from typing import Dict, Callable
+from typing import List, Dict, Set, Optional, Tuple, Callable
+
 
 class UIManager:
     def __init__(self, master: ctk.CTk):
@@ -10,6 +12,7 @@ class UIManager:
         """Configura a janela principal"""
         self.master.title("Gerador de Jogos - Mega Sena")
         self.master.geometry("1200x900")
+        # self.master.geometry("1024x768")
         ctk.set_appearance_mode("system")
         ctk.set_default_color_theme("green")
     
@@ -233,14 +236,15 @@ class UIManager:
 
     # Modify the create_control_panel method to include the favorites panel
     def create_control_panel(self, parent: ctk.CTkFrame, buttons_config: list) -> Dict:
-        """Creates the control panel with game quantity input and buttons"""
+        """Criar o painel de controle com entrada de quantidade e botões organizados por categoria"""
         main_frame = ctk.CTkFrame(parent)
         main_frame.pack(pady=10, fill="x")
         
-        # Quantity controls frame
+        # Frame superior para quantidade de jogos
         quantity_frame = ctk.CTkFrame(main_frame)
         quantity_frame.pack(pady=5, fill="x")
         
+        # Label e entrada para quantidade
         num_games_label = ctk.CTkLabel(quantity_frame, text="Quantidade de Jogos:")
         num_games_label.pack(side="left", padx=5)
         
@@ -252,23 +256,253 @@ class UIManager:
         )
         num_games_entry.pack(side="left", padx=5)
         
-        # Buttons frame
-        buttons_frame = ctk.CTkFrame(main_frame)
-        buttons_frame.pack(pady=5, fill="x")
+        # Organizar botões em categorias
+        button_categories = {
+            "importação": [],  # Grupo para importação/exportação
+            "geração": [],     # Grupo para geração de jogos
+            "seleção": [],     # Grupo para filtros e seleção
+            "ações": []        # Grupo para outras ações
+        }
+        
+        # Classificar botões em categorias baseado em seus nomes
+        for text, command in buttons_config:
+            if "Importar" in text or "Exportar" in text:
+                button_categories["importação"].append((text, command))
+            elif "Gerar" in text:
+                button_categories["geração"].append((text, command))
+            elif "Selecionar" in text or "Filtro" in text or "Marcar" in text:
+                button_categories["seleção"].append((text, command))
+            elif "Limpar" in text:
+                button_categories["ações"].append((text, command))
+            else:
+                # Caso não se encaixe em nenhuma categoria específica
+                button_categories["ações"].append((text, command))
+        
+        # Frame para os botões - primeira linha (importação e geração)
+        buttons_frame1 = ctk.CTkFrame(main_frame)
+        buttons_frame1.pack(pady=(5, 2), fill="x")
+        
+        # Frame para os botões - segunda linha (seleção e ações)
+        buttons_frame2 = ctk.CTkFrame(main_frame)
+        buttons_frame2.pack(pady=(2, 5), fill="x")
         
         buttons = {}
-        for text, command in buttons_config:
+        
+        # Adicionar botões da primeira linha (importação e geração)
+        for text, command in button_categories["importação"] + button_categories["geração"]:
             btn = ctk.CTkButton(
-                buttons_frame,
+                buttons_frame1,
                 text=text,
                 command=command,
                 font=ctk.CTkFont(size=16),
                 width=150
             )
-            btn.pack(side="left", padx=5)
+            btn.pack(side="left", padx=5, pady=3)
+            buttons[text] = btn
+        
+        # Adicionar botões da segunda linha (seleção e outras ações)
+        for text, command in button_categories["seleção"] + button_categories["ações"]:
+            # Se for botão de limpar, usar cor vermelha
+            if "Limpar" in text:
+                btn = ctk.CTkButton(
+                    buttons_frame2,
+                    text=text,
+                    command=command,
+                    font=ctk.CTkFont(size=16),
+                    width=150,
+                    fg_color="red",
+                    hover_color="#b30000"  # Vermelho mais escuro para hover
+                )
+            else:
+                btn = ctk.CTkButton(
+                    buttons_frame2,
+                    text=text,
+                    command=command,
+                    font=ctk.CTkFont(size=16),
+                    width=150
+                )
+            btn.pack(side="left", padx=5, pady=3)
             buttons[text] = btn
         
         return {
             'num_games_var': num_games_var,
             'buttons': buttons
+        }    
+    
+def create_strategy_panel(self, parent: ctk.CTkFrame, strategies_config: List[Tuple[str, Callable]]) -> Dict:
+        """
+        Cria um painel para estratégias avançadas
+        
+        Args:
+            parent: Frame pai
+            strategies_config: Lista de tuplas (texto, função) para os botões de estratégia
+            
+        Returns:
+            Dicionário com componentes criados
+        """
+        frame = ctk.CTkFrame(parent)
+        frame.pack(pady=10, fill="x")
+        
+        # Frame para os controles de parâmetros
+        params_frame = ctk.CTkFrame(frame)
+        params_frame.pack(pady=5, fill="x")
+        
+        # Título do painel
+        title_label = ctk.CTkLabel(
+            params_frame,
+            text="Estratégias Avançadas",
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        title_label.pack(anchor="w", padx=5, pady=5)
+        
+        # Parâmetros de estratégia
+        cercar_var = ctk.StringVar(value="12")
+        top_count_var = ctk.StringVar(value="30")
+        recent_count_var = ctk.StringVar(value="5")
+        
+        # Frame para parâmetros na linha 1
+        params_line1 = ctk.CTkFrame(params_frame)
+        params_line1.pack(fill="x", pady=2)
+        
+        # Parâmetro: Números a cercar
+        cercar_label = ctk.CTkLabel(params_line1, text="Números a cercar:")
+        cercar_label.pack(side="left", padx=5)
+        
+        cercar_entry = ctk.CTkEntry(
+            params_line1,
+            textvariable=cercar_var,
+            width=60
+        )
+        cercar_entry.pack(side="left", padx=5)
+        
+        # Parâmetro: Top mais frequentes
+        top_label = ctk.CTkLabel(params_line1, text="Top mais frequentes:")
+        top_label.pack(side="left", padx=5)
+        
+        top_entry = ctk.CTkEntry(
+            params_line1,
+            textvariable=top_count_var,
+            width=60
+        )
+        top_entry.pack(side="left", padx=5)
+        
+        # Parâmetro: Jogos recentes a evitar
+        recent_label = ctk.CTkLabel(params_line1, text="Evitar jogos recentes:")
+        recent_label.pack(side="left", padx=5)
+        
+        recent_entry = ctk.CTkEntry(
+            params_line1,
+            textvariable=recent_count_var,
+            width=60
+        )
+        recent_entry.pack(side="left", padx=5)
+        
+        # Checkboxes para opções de estratégia
+        options_frame = ctk.CTkFrame(params_frame)
+        options_frame.pack(fill="x", pady=2)
+        
+        use_parity_var = ctk.BooleanVar(value=True)
+        parity_check = ctk.CTkCheckBox(
+            options_frame,
+            text="Filtrar por paridade",
+            variable=use_parity_var
+        )
+        parity_check.pack(side="left", padx=5)
+        
+        use_decade_var = ctk.BooleanVar(value=True)
+        decade_check = ctk.CTkCheckBox(
+            options_frame,
+            text="Filtrar por grupos de dezenas",
+            variable=use_decade_var
+        )
+        decade_check.pack(side="left", padx=5)
+        
+        # Frame para os botões de estratégia
+        buttons_frame = ctk.CTkFrame(frame)
+        buttons_frame.pack(pady=5, fill="x")
+        
+        # Criar botões com configuração fornecida
+        buttons = {}
+        for text, command in strategies_config:
+            btn = ctk.CTkButton(
+                buttons_frame,
+                text=text,
+                command=command,
+                font=ctk.CTkFont(size=14),
+                width=180,
+                height=35
+            )
+            btn.pack(side="left", padx=5, pady=5)
+            buttons[text] = btn
+        
+        return {
+            'cercar_var': cercar_var,
+            'top_count_var': top_count_var,
+            'recent_count_var': recent_count_var,
+            'use_parity_var': use_parity_var,
+            'use_decade_var': use_decade_var,
+            'buttons': buttons
         }
+    
+def create_filter_info_panel(self, parent: ctk.CTkFrame) -> Dict:
+    """
+    Cria um painel para exibir informações de filtragem
+    
+    Args:
+        parent: Frame pai
+        
+    Returns:
+        Dicionário com componentes criados
+    """
+    frame = ctk.CTkFrame(parent)
+    frame.pack(pady=5, fill="x")
+    
+    # Título do painel
+    title_label = ctk.CTkLabel(
+        frame,
+        text="Informações de Filtragem",
+        font=ctk.CTkFont(size=14, weight="bold")
+    )
+    title_label.pack(anchor="w", padx=5, pady=5)
+    
+    # Área de texto para informações
+    info_text = ctk.CTkTextbox(
+        frame,
+        height=60,
+        font=ctk.CTkFont(size=12)
+    )
+    info_text.pack(padx=5, pady=5, fill="x")
+    
+    return {
+        'info_text': info_text
+    }
+
+def update_filter_info(self, info_text: ctk.CTkTextbox, filter_info: Dict) -> None:
+    """
+    Atualiza o texto de informações de filtragem
+    
+    Args:
+        info_text: Componente de texto a atualizar
+        filter_info: Dicionário com informações de filtragem
+    """
+    info_text.delete("0.0", "end")
+    
+    if not filter_info:
+        info_text.insert("0.0", "Nenhuma filtragem aplicada")
+        return
+        
+    info_str = "Resumo da filtragem:\n"
+    
+    if 'initial_count' in filter_info and 'remaining' in filter_info:
+        info_str += f"- Total de números: {filter_info['initial_count']}\n"
+        
+    if 'top_frequent' in filter_info:
+        info_str += f"- Selecionados mais frequentes: {filter_info['top_frequent']}\n"
+        
+    if 'removed_recent' in filter_info:
+        info_str += f"- Removidos de jogos recentes: {filter_info['removed_recent']}\n"
+        
+    if 'remaining' in filter_info:
+        info_str += f"- Números após filtragem: {filter_info['remaining']}\n"
+    
+    info_text.insert("0.0", info_str)

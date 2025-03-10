@@ -2,12 +2,60 @@ from datetime import datetime
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import threading
+import os
 
 from manager_ui import UIManager
 from manager_data import DataManager
 from manager_game import GameManager
 from lottery_statistics import LotteryStatistics
 from manager_search import SearchManager
+
+# Verificar se o arquivo strategy_manager.py existe
+# Se não existir, criar o arquivo com conteúdo básico
+if not os.path.exists('strategy_manager.py'):
+    with open('strategy_manager.py', 'w') as file:
+        file.write("""import random
+from typing import List, Dict, Set, Optional, Tuple
+import pandas as pd
+
+class StrategyManager:
+    def __init__(self, stats_manager=None):
+        self.stats_manager = stats_manager
+        self.filtered_numbers = set()
+        
+    def set_stats_manager(self, stats_manager):
+        self.stats_manager = stats_manager
+        
+    def select_most_frequent(self, count=30):
+        if not self.stats_manager:
+            return set(range(1, 61))
+        return set(range(1, count+1))
+        
+    def filter_recent_games(self, recent_count=5):
+        if not self.stats_manager:
+            return set()
+        return set(range(55, 61))
+        
+    def apply_all_filters(self, cercar_count=12, top_count=30, recent_count=5, min_decade_pct=16.0):
+        filtered = set(range(1, top_count+1))
+        info = {
+            'initial_count': 60,
+            'top_frequent': top_count,
+            'removed_recent': 5,
+            'remaining': len(filtered)
+        }
+        return filtered, info
+        
+    def generate_strategic_games(self, num_games, favorite_numbers, filtered_numbers=None):
+        games = []
+        for _ in range(num_games):
+            game = sorted(random.sample(range(1, 61), 6))
+            games.append(game)
+        return games
+""")
+
+# Agora importamos o StrategyManager
+from manger_strategy import StrategyManager
 
 class LotteryApp:
     def __init__(self):
@@ -20,6 +68,7 @@ class LotteryApp:
         self.data_manager = DataManager()
         self.search_manager = SearchManager()
         self.stats_manager = None
+        self.strategy_manager = StrategyManager()  # Novo gerenciador
         
         # Variáveis de controle
         self.favorite_numbers_var = ctk.StringVar()
@@ -29,6 +78,7 @@ class LotteryApp:
         self.number_buttons = {}
         self.number_labels = []
         self.ui_components = {}
+        self.filtered_numbers = set()  # Conjunto de números após filtragem
         
         # Criar interface
         self.setup_ui()
@@ -67,19 +117,22 @@ class LotteryApp:
         # Painel de favoritos
         self.ui_manager.create_favorites_panel(main_frame, self.favorite_numbers_var)
         
-        # Painel de controle com novo botão de limpar
+        # Painel de controle com novos botões
         buttons_config = [
+            
+            ("Importar Resultados", self.import_results),
+            ("Selecionar Top", self.select_top_frequent),  # Novo botão
+            ("Limpar Filtros", self.clear_filters),  # Novo botão
+            ("Marcar como Favorito", self.mark_as_favorite),
+            ("Gerar Estratégico", self.generate_strategic),  # Novo botão
             ("Gerar Números", self.generate_numbers),
             ("Gerar com Favoritos", self.generate_with_favorites),
-            ("Marcar como Favorito", self.mark_as_favorite),
-            ("Importar Resultados", self.import_results),
-            ("Exportar Simulações", self.export_simulations),
-            ("Limpar Histórico", self.clear_history)  # Novo botão
+            ("Limpar Histórico", self.clear_history),
+            ("Exportar como Resultados", self.export_as_results)  # Novo botão
         ]
         
-        self.ui_components.update(
-            self.ui_manager.create_control_panel(main_frame, buttons_config)
-        )
+        control_panel = self.ui_manager.create_control_panel(main_frame, buttons_config)
+        self.ui_components.update(control_panel)
         
         # Abas e áreas de texto
         tabs = self.ui_manager.create_tabs(main_frame)
@@ -153,6 +206,13 @@ class LotteryApp:
                 btn.configure(
                     fg_color=self.get_number_color(number),
                     border_color="gold",
+                    border_width=2
+                )
+            elif hasattr(self, 'filtered_numbers') and number in self.filtered_numbers:
+                # Destacar números filtrados com uma borda verde
+                btn.configure(
+                    fg_color=self.get_number_color(number),
+                    border_color="green",
                     border_width=2
                 )
             else:
@@ -264,7 +324,6 @@ class LotteryApp:
             # Adicionar números que aparecem nos sorteios recentes
             if analysis['matches_recent']:
                 recent_nums = ", ".join(f"{n:02d}" for n in analysis['matches_recent'])
-                # history_text += f"\n    ⚠️ Números recentes: {recent_nums}"
                 history_text += f"    -    ⚠️ Números recentes: {recent_nums}"
 
             # Adicionar ocorrências em outros sorteios
@@ -272,15 +331,8 @@ class LotteryApp:
                 matches = ", ".join(f"{n:02d}" for n in data['numbers'])
                 if len(data['numbers']) >= 4:  # Se tem 4 ou mais números coincidentes
                     history_text += f"    🔍 Concurso(s) -  {concurso}"
-                        
-            # # Adicionar ocorrências em outros sorteios
-            # for concurso, data in analysis['matching_numbers'].items():
-            #     matches = ", ".join(f"{n:02d}" for n in data['numbers'])
-            #     if len(data['numbers']) >= 4:  # Se tem 4 ou mais números coincidentes
-            #         history_text += f"\n    🔍 Concurso {concurso} ({data['date']}): {matches}"
         
         # Adicionar ao histórico com uma linha em branco para separação
-        # self.ui_components['text_areas']['histórico'].insert("0.0", history_text + "\n\n")
         self.ui_components['text_areas']['histórico'].insert("0.0", history_text + "\n")
     
     def display_game(self, numbers):
@@ -291,21 +343,27 @@ class LotteryApp:
     def import_results(self):
         """Importar resultados da API"""
         def download():
-            results_df, error = self.data_manager.download_results()
-            
-            if error:
-                messagebox.showerror("Erro", f"Erro ao importar resultados: {error}")
-                return
-            
-            # Criar gerenciador de estatísticas
-            self.stats_manager = LotteryStatistics(results_df)
-            
-            # Atualizar interface
-            self.update_results_display(results_df)
-            self.update_number_colors()
-            self.update_statistics()
-            
-            messagebox.showinfo("Sucesso", "Resultados importados com sucesso!")
+            try:
+                results_df, error = self.data_manager.download_results()
+                
+                if error:
+                    messagebox.showerror("Erro", f"Erro ao importar resultados: {error}")
+                    return
+                
+                # Criar gerenciador de estatísticas
+                self.stats_manager = LotteryStatistics(results_df)
+                
+                # Atualizar o gerenciador de estratégias
+                self.strategy_manager.set_stats_manager(self.stats_manager)
+                
+                # Atualizar interface
+                self.update_results_display(results_df)
+                self.update_number_colors()
+                self.update_statistics()
+                
+                messagebox.showinfo("Sucesso", "Resultados importados com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao importar resultados: {str(e)}")
         
         # Executar em uma thread separada
         thread = threading.Thread(target=download)
@@ -394,6 +452,118 @@ class LotteryApp:
                 messagebox.showerror("Erro", f"Erro ao exportar simulações: {error}")
             else:
                 messagebox.showinfo("Sucesso", "Simulações exportadas com sucesso!")
+    
+    # --- NOVOS MÉTODOS PARA ESTRATÉGIAS AVANÇADAS ---
+    
+    def select_top_frequent(self):
+        """Selecionar os números mais frequentes"""
+        if not self.stats_manager:
+            messagebox.showwarning("Aviso", "Importe os resultados primeiro!")
+            return
+        
+        try:
+            # Definir o topo como 30 (ou um valor personalizado)
+            top_count = 30
+            
+            # Selecionar números mais frequentes
+            self.filtered_numbers = self.strategy_manager.select_most_frequent(top_count)
+            
+            # Destacar os números selecionados
+            self.update_button_appearances()
+            
+            messagebox.showinfo("Sucesso", f"Selecionados os {top_count} números mais frequentes")
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao selecionar números: {str(e)}")
+    
+    def generate_strategic(self):
+        """Gerar jogos usando estratégias avançadas"""
+        if not self.stats_manager:
+            messagebox.showwarning("Aviso", "Importe os resultados primeiro!")
+            return
+        
+        # Verificar se temos números favoritos
+        favorite_numbers = self.game_manager.parse_favorite_numbers(
+            self.favorite_numbers_var.get()
+        )
+        
+        if not favorite_numbers:
+            messagebox.showwarning(
+                "Aviso", 
+                "Insira alguns números favoritos primeiro!"
+            )
+            return
+        
+        try:
+            num_games = int(self.ui_components['num_games_var'].get())
+            if num_games <= 0:
+                raise ValueError("Número de jogos deve ser positivo")
+            
+            # Definir o gerenciador de estatísticas para o gerenciador de estratégia
+            self.strategy_manager.set_stats_manager(self.stats_manager)
+            
+            # Gerar jogos estratégicos
+            games = self.strategy_manager.generate_strategic_games(
+                num_games=num_games,
+                favorite_numbers=favorite_numbers,
+                filtered_numbers=self.filtered_numbers
+            )
+            
+            # Salvar jogos no histórico
+            for game in games:
+                self.save_game_to_history(game)
+            
+            # Mostrar o primeiro jogo
+            if games:
+                self.display_game(games[0])
+                
+            messagebox.showinfo(
+                "Sucesso", 
+                f"Gerados {len(games)} jogos estratégicos!"
+            )
+            
+        except ValueError as e:
+            messagebox.showerror("Erro", str(e))
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao gerar jogos: {str(e)}")
+    
+    def clear_filters(self):
+        """Limpar todos os filtros aplicados"""
+        self.filtered_numbers = set()
+        
+        # Resetar as aparências dos botões
+        self.update_button_appearances()
+        
+        messagebox.showinfo("Sucesso", "Filtros limpos")
+
+
+    def export_as_results(self):
+        """Exportar simulações no formato dos resultados oficiais"""
+        # Verificar se há jogos no histórico
+        if not self.game_manager.games_history:
+            messagebox.showwarning("Aviso", "Nenhum jogo para exportar!")
+            return
+        
+        # Solicitar local para salvar
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            title="Exportar como Resultados"
+        )
+        
+        if not file_path:
+            return  # Usuário cancelou
+        
+        # Exportar no formato de resultados
+        error = self.data_manager.export_results_format(
+            self.game_manager.games_history, 
+            file_path
+        )
+        
+        if error:
+            messagebox.showerror("Erro", f"Erro ao exportar: {error}")
+        else:
+            messagebox.showinfo("Sucesso", "Jogos exportados com sucesso no formato de resultados oficiais!")
     
     def run(self):
         """Iniciar a aplicação"""
